@@ -8,7 +8,7 @@ class PingService {
     try {
       final process = await Process.start(
         'ping',
-        ['-n','1',host],
+        ['-n', '3', host],
         mode: ProcessStartMode.normal,
       );
 
@@ -32,25 +32,33 @@ class PingService {
   }
 
   Map<String, String> extractIpAndAvgTime(String pingOutput) {
+    // Buscar la IP en la salida del ping
     final ipPattern =
         RegExp(r'\[(\d+\.\d+\.\d+\.\d+)\]|\b(\d+\.\d+\.\d+\.\d+)\b');
     final ipMatch = ipPattern.firstMatch(pingOutput);
     final ip = ipMatch?.group(1) ?? ipMatch?.group(2) ?? 'IP no encontrada';
 
+    // Buscar la cantidad de paquetes perdidos
     final lostPacketsPattern = RegExp(r'perdidos\s+=\s+(\d+)');
     final lostPacketsMatch = lostPacketsPattern.firstMatch(pingOutput);
     final lostPackets = int.tryParse(lostPacketsMatch?.group(1) ?? '0');
 
-    if (lostPackets == 4 || lostPackets == 3  ) {
-      return {'ip': ip, 'media': 'Ping fallido'};
-    }
-    final avgPattern = RegExp(r'Media\s+=\s+(\d+)ms');
-    final avgMatch = avgPattern.firstMatch(pingOutput);
-    final avgTime = avgMatch?.group(1) ?? 'Media no encontrada';
-    if(avgTime == 'Media no encontrada'){
+    // Si se perdieron todos los paquetes, devolvemos que el ping falló
+    if (lostPackets == 3) {
       return {'ip': ip, 'media': 'Ping fallido'};
     }
 
-    return {'ip': ip, 'media': '${avgTime}ms'};
+    // Buscar el primer tiempo de respuesta (ms)
+    final timePattern = RegExp(r'tiempo[=<]\s*(\d+)ms');
+    final firstMatch = timePattern.firstMatch(pingOutput);
+
+    // Si se encuentra un tiempo, devolverlo
+    if (firstMatch != null) {
+      final time = firstMatch.group(1);
+      return {'ip': ip, 'media': '${time}ms'};
+    }
+
+    // Si no se encuentra ningún tiempo, devolvemos un ping fallido
+    return {'ip': ip, 'media': 'Ping fallido'};
   }
 }
