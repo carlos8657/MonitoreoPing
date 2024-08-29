@@ -51,6 +51,11 @@ class HomePageState extends State<HomePage> {
                     }
                     return null;
                   },
+                  onFieldSubmitted: (value) {
+                    // Enviar el formulario cuando se presiona Enter en el campo de texto
+                    handleAddServer(
+                        context, formKey, nameController, ipController);
+                  },
                 ),
                 TextFormField(
                   controller: ipController,
@@ -60,6 +65,11 @@ class HomePageState extends State<HomePage> {
                       return 'Por favor, ingrese una IP';
                     }
                     return null;
+                  },
+                  onFieldSubmitted: (value) {
+                    // Enviar el formulario cuando se presiona Enter en el campo de texto
+                    handleAddServer(
+                        context, formKey, nameController, ipController);
                   },
                 ),
               ],
@@ -73,17 +83,8 @@ class HomePageState extends State<HomePage> {
               child: const Text("Cancelar"),
             ),
             TextButton(
-              onPressed: () async {
-                if (formKey.currentState?.validate() ?? false) {
-                  final name = nameController.text;
-                  final ip = ipController.text;
-                  final newServer = {'nombre': name, 'ip': ip, 'excluido': 'false'};
-                  serverManager.addServer(newServer);
-                  await serverManager.saveServers(); // Guarda los cambios en el archivo JSON
-                  setState(() {});
-                  // ignore: use_build_context_synchronously
-                  Navigator.of(context).pop();
-                }
+              onPressed: () {
+                handleAddServer(context, formKey, nameController, ipController);
               },
               child: const Text("Agregar"),
             ),
@@ -93,14 +94,36 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  void showRemoveServerDialog(String ip) async {
+  void handleAddServer(
+    BuildContext context,
+    GlobalKey<FormState> formKey,
+    TextEditingController nameController,
+    TextEditingController ipController,
+  ) async {
+    if (formKey.currentState?.validate() ?? false) {
+      final name = nameController.text;
+      final ip = ipController.text;
+      final newServer = {'nombre': name, 'ip': ip, 'excluido': 'false'};
+      serverManager.addServer(newServer);
+      await serverManager
+          .saveServers(); // Guarda los cambios en el archivo JSON
+      setState(() {});
+      Navigator.of(context).pop();
+    }
+  }
 
+  void showRemoveServerDialog(String ip) async {
+    final FocusNode focusNode = FocusNode();
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          FocusScope.of(context).requestFocus(focusNode);
+        });
         return AlertDialog(
           title: const Text("Eliminar Servidor"),
-          content: const Text("¿Está seguro de que desea eliminar este servidor?"),
+          content:
+              const Text("¿Está seguro de que desea eliminar este servidor?"),
           actions: [
             TextButton(
               onPressed: () {
@@ -109,20 +132,25 @@ class HomePageState extends State<HomePage> {
               child: const Text("Cancelar"),
             ),
             TextButton(
-              onPressed: () async {
-                setState(() {
-                  serverManager.removeServer(ip);
-                });
-                await serverManager.saveServers();
-                loadServers();
-                Navigator.of(context).pop();
+              onPressed: () {
+                handleRemoveServer(context, ip);
               },
+              focusNode: focusNode,
               child: const Text("Eliminar"),
             ),
           ],
+          actionsOverflowButtonSpacing: 1,
         );
       },
     );
+  }
+
+  void handleRemoveServer(BuildContext context, String ip) async {
+    serverManager.removeServer(ip);
+    await serverManager.saveServers();
+    loadServers();
+    // ignore: use_build_context_synchronously
+    Navigator.of(context).pop();
   }
 
   void showEditServerDialog(String oldIp) async {
@@ -132,12 +160,19 @@ class HomePageState extends State<HomePage> {
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
     // Controladores para los campos de texto  y asignar valores iniciales
-    final TextEditingController nameController = TextEditingController(text: server['nombre']);
-    final TextEditingController ipController = TextEditingController(text: server['ip']);
+    final TextEditingController nameController =
+        TextEditingController(text: server['nombre']);
+    final TextEditingController ipController =
+        TextEditingController(text: server['ip']);
+
+    final FocusNode nameFocusNode = FocusNode();
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          FocusScope.of(context).requestFocus(nameFocusNode);
+        });
         return AlertDialog(
           title: const Text("Editar Servidor"),
           content: Form(
@@ -146,6 +181,7 @@ class HomePageState extends State<HomePage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
+                  focusNode: nameFocusNode,
                   controller: nameController,
                   decoration: const InputDecoration(labelText: 'Nombre'),
                   validator: (value) {
@@ -159,16 +195,22 @@ class HomePageState extends State<HomePage> {
                     }
                     return null;
                   },
+                  onFieldSubmitted: (value) {
+                    handleEditServer(formKey, nameController, ipController, oldIp, server);
+                  },
                 ),
                 TextFormField(
                   controller: ipController,
                   decoration: const InputDecoration(labelText: 'IP'),
                   validator: (value) {
-                    // Validar que el campo no este vacio 
+                    // Validar que el campo no este vacio
                     if (value == null || value.isEmpty) {
                       return 'Por favor, ingrese una IP';
                     }
                     return null;
+                  },
+                  onFieldSubmitted: (value) {
+                    handleEditServer(formKey, nameController, ipController, oldIp, server);
                   },
                 ),
               ],
@@ -183,24 +225,7 @@ class HomePageState extends State<HomePage> {
             ),
             TextButton(
               onPressed: () async {
-                // Verificar que cumpla con las validaciones
-                if (formKey.currentState?.validate() ?? false) {
-                  // Obtener informacion actualizada del servidor
-                  final updatedName = nameController.text;
-                  final updatedIp = ipController.text;
-                  // Crear un objeto del servidor a actualizar
-                  final updatedServer = {'nombre': updatedName, 'ip': updatedIp, 'excluido': server['excluido'] ?? 'false'};
-
-                  setState(() {
-                    serverManager.updateServer(oldIp, updatedServer);
-                  });
-                  // Guardar los cambios en el archivo JSON
-                  await serverManager.saveServers();
-                  // Recargar servidores después de actualizar
-                  loadServers();
-                  // Cerrar el dialogo
-                  Navigator.of(context).pop();
-                }
+                handleEditServer(formKey, nameController, ipController, oldIp, server);
               },
               child: const Text("Guardar"),
             ),
@@ -208,6 +233,37 @@ class HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  void handleEditServer(
+    GlobalKey<FormState> formKey,
+    TextEditingController nameController,
+    TextEditingController ipController,
+    String oldIp,
+    Map<String, String> server,
+  ) async {
+    // Verificar que cumpla con las validaciones
+    if (formKey.currentState?.validate() ?? false) {
+      // Obtener informacion actualizada del servidor
+      final updatedName = nameController.text;
+      final updatedIp = ipController.text;
+      // Crear un objeto del servidor a actualizar
+      final updatedServer = {
+        'nombre': updatedName,
+        'ip': updatedIp,
+        'excluido': server['excluido'] ?? 'false'
+      };
+
+      setState(() {
+        serverManager.updateServer(oldIp, updatedServer);
+      });
+      // Guardar los cambios en el archivo JSON
+      await serverManager.saveServers();
+      // Recargar servidores después de actualizar
+      loadServers();
+      // Cerrar el dialogo
+      Navigator.of(context).pop();
+    }
   }
 
   @override

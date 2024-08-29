@@ -5,7 +5,7 @@ import 'package:window_manager/window_manager.dart';
 void main() async{
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
-  windowManager.setTitle('Monitoreo Ping Sistemas'); // Cambia el título de la ventana aquí
+  windowManager.setTitle('Monitoreo Ping'); // Cambia el título de la ventana aquí
   runApp(const MyApp());
 }
 
