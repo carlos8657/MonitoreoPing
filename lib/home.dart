@@ -28,10 +28,14 @@ class HomePageState extends State<HomePage> {
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
     final TextEditingController nameController = TextEditingController();
     final TextEditingController ipController = TextEditingController();
+    final FocusNode nodoNombre = FocusNode();
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          FocusScope.of(context).requestFocus(nodoNombre);
+        });
         return AlertDialog(
           title: const Text("Agregar Servidor"),
           content: Form(
@@ -40,6 +44,7 @@ class HomePageState extends State<HomePage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
+                  focusNode: nodoNombre,
                   controller: nameController,
                   decoration: const InputDecoration(labelText: 'Nombre'),
                   validator: (value) {

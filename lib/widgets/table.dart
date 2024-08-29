@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:monitoreo_ip/services/ping.dart';
+import 'package:window_manager/window_manager.dart';
 
 class TableWidget extends StatefulWidget {
   const TableWidget({
@@ -29,7 +30,7 @@ class _TableWidgetState extends State<TableWidget> {
   OverlayEntry? _overlayEntry;
   late AudioPlayer _player;
   final Map<String, int> numeroAlertas = {};
-    final Map<String, int> pingFallidos = {};
+  final Map<String, int> pingFallidos = {};
 
   @override
   void initState() {
@@ -39,15 +40,23 @@ class _TableWidgetState extends State<TableWidget> {
     _startPing();
   }
 
+  void restoreWindow() async {
+    if (await windowManager.isMinimized()) {
+      windowManager.restore();
+      windowManager.focus();
+    }
+  }
+
   void _startPing() {
     Timer.periodic(const Duration(seconds: 1), (timer) {
       for (var server in widget.servers) {
         final ip = server['ip'];
         if (ip != null) {
           _pingService.pingHost(ip).then((result) {
-            if(result['media'] == 'Ping fallido' || result['media'] == 'Error'){
-              pingFallidos[ip] =  (pingFallidos[ip] ?? 0) + 1;
-            }else{
+            if (result['media'] == 'Ping fallido' ||
+                result['media'] == 'Error') {
+              pingFallidos[ip] = (pingFallidos[ip] ?? 0) + 1;
+            } else {
               pingFallidos[ip] = 0;
               server['excluir'] = 'false';
             }
@@ -60,10 +69,15 @@ class _TableWidgetState extends State<TableWidget> {
             });
 
             // Muestra la alerta solo si el servidor no está excluido y es un error
-            if (!_isAlertVisible && isError && pingFallidos[ip]! >= 60 && server['excluir'] != 'true') {
+            if (!_isAlertVisible &&
+                isError &&
+                pingFallidos[ip]! >= 60 &&
+                server['excluir'] != 'true') {
+              restoreWindow();
               _showErrorAlert(ip, result['media']!, server['nombre']!);
+
               numeroAlertas[ip] = (numeroAlertas[ip] ?? 0) + 1;
-              if(numeroAlertas[ip]! >= 3){
+              if (numeroAlertas[ip]! >= 3) {
                 numeroAlertas[ip] = 0;
                 server['excluir'] = 'true';
               }
@@ -242,7 +256,7 @@ class _TableWidgetState extends State<TableWidget> {
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         onPressed: () {
                           // Editar servidor
-                           widget.onEditServer(server['ip'] ?? '');
+                          widget.onEditServer(server['ip'] ?? '');
                         },
                       ),
                       IconButton(
@@ -279,7 +293,8 @@ class _TableWidgetState extends State<TableWidget> {
                         padding: EdgeInsets.zero,
                         child: Text(
                           _pingResults[server['ip']] == 'Error' ||
-                                  _pingResults[server['ip']] == 'Ping fallido' ||
+                                  _pingResults[server['ip']] ==
+                                      'Ping fallido' ||
                                   _pingResults[server['ip']] == null
                               ? 'Offline'
                               : 'Online',
