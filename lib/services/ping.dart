@@ -8,7 +8,7 @@ class PingService {
     try {
       final process = await Process.start(
         'ping',
-        ['-n', '3', host],
+        ['-n', '5', host],
         mode: ProcessStartMode.normal,
       );
 
@@ -57,6 +57,7 @@ class PingService {
       final time = firstMatch.group(1);
       return {'ip': ip, 'media': '${time}ms'};
     }
+
 
     // Si no se encuentra ningún tiempo, devolvemos un ping fallido
     return {'ip': ip, 'media': 'Ping fallido'};

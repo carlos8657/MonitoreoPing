@@ -59,4 +59,11 @@ class ServerManager {
     _servers.removeWhere((server) => server['ip'] == value);
     saveServers(); // Guarda automáticamente después de eliminar
   }
+
+  void updateServer(String oldIp, Map<String, String> updatedServer) {
+    final index = servers.indexWhere((server) => server['ip'] == oldIp);
+    if (index != -1) {
+      servers[index] = updatedServer;
+    }
+  }
 }

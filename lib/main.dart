@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:monitoreo_ip/home.dart';
+import 'package:window_manager/window_manager.dart';
 
-void main() {
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+  windowManager.setTitle('Monitoreo Ping Sistemas'); // Cambia el título de la ventana aquí
   runApp(const MyApp());
 }
 

@@ -9,11 +9,13 @@ class TableWidget extends StatefulWidget {
     required this.servers,
     required this.onRemoveServer, // Añadir el callback
     required this.isAudioEnabled,
+    required this.onEditServer, // Añadir el callback
   });
 
   final List<Map<String, String>> servers;
   final Function(String) onRemoveServer; // Callback para eliminar servidor
   final bool isAudioEnabled;
+  final Function(String) onEditServer;
 
   @override
   _TableWidgetState createState() => _TableWidgetState();
@@ -235,6 +237,13 @@ class _TableWidgetState extends State<TableWidget> {
                             ),
                           ),
                         ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () {
+                          // Editar servidor
+                           widget.onEditServer(server['ip'] ?? '');
+                        },
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
