@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:monitoreo_ip/services/server_manager.dart';
 import 'package:monitoreo_ip/widgets/table.dart';
+import 'package:uuid/uuid.dart';
+import 'package:uuid/v4.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,6 +14,7 @@ class HomePage extends StatefulWidget {
 class HomePageState extends State<HomePage> {
   final ServerManager serverManager = ServerManager();
   bool isAudioEnabled = true;
+  final uuid = const Uuid();
 
   @override
   void initState() {
@@ -29,6 +32,7 @@ class HomePageState extends State<HomePage> {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController ipController = TextEditingController();
     final FocusNode nodoNombre = FocusNode();
+    String tipoServidor = 'servidor';
 
     showDialog(
       context: context,
@@ -43,39 +47,69 @@ class HomePageState extends State<HomePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(
-                  focusNode: nodoNombre,
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Nombre'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingrese un nombre';
-                    }
-                    if (value.length < 3) {
-                      return 'El nombre debe tener al menos 3 caracteres';
-                    }
-                    return null;
-                  },
-                  onFieldSubmitted: (value) {
-                    // Enviar el formulario cuando se presiona Enter en el campo de texto
-                    handleAddServer(
-                        context, formKey, nameController, ipController);
-                  },
+                // Campo de texto para el nombre
+                SizedBox(
+                  width: double.infinity,
+                  child: TextFormField(
+                    focusNode: nodoNombre,
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingrese un nombre';
+                      }
+                      if (value.length < 3) {
+                        return 'El nombre debe tener al menos 3 caracteres';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (value) {
+                      // Enviar el formulario cuando se presiona Enter en el campo de texto
+                      handleAddServer(
+                          context, formKey, nameController, ipController, tipoServidor);
+                    },
+                  ),
                 ),
-                TextFormField(
-                  controller: ipController,
-                  decoration: const InputDecoration(labelText: 'IP'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingrese una IP';
-                    }
-                    return null;
-                  },
-                  onFieldSubmitted: (value) {
-                    // Enviar el formulario cuando se presiona Enter en el campo de texto
-                    handleAddServer(
-                        context, formKey, nameController, ipController);
-                  },
+                const SizedBox(height: 16),
+                // Campo de texto para la dirección IP
+                SizedBox(
+                  width: double.infinity,
+                  child: TextFormField(
+                    controller: ipController,
+                    decoration: const InputDecoration(labelText: 'IP'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingrese una IP';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (value) {
+                      // Enviar el formulario cuando se presiona Enter en el campo de texto
+                      handleAddServer(
+                          context, formKey, nameController, ipController, tipoServidor);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Campo para tipo de servidor
+                SizedBox(
+                  width: double.infinity,
+                  child: DropdownButtonFormField(
+                    decoration:
+                        const InputDecoration(labelText: 'Tipo de Servidor'),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'servidor', child: Text('Servidor')),
+                      DropdownMenuItem(
+                          value: 'dispositivo', child: Text('Dispositivo')),
+                    ],
+                    value: tipoServidor,
+                    onChanged: (value) {
+                      setState(() {
+                        tipoServidor = value.toString();
+                      });
+                    },
+                  ),
                 ),
               ],
             ),
@@ -89,7 +123,7 @@ class HomePageState extends State<HomePage> {
             ),
             TextButton(
               onPressed: () {
-                handleAddServer(context, formKey, nameController, ipController);
+                handleAddServer(context, formKey, nameController, ipController, tipoServidor);
               },
               child: const Text("Agregar"),
             ),
@@ -104,14 +138,26 @@ class HomePageState extends State<HomePage> {
     GlobalKey<FormState> formKey,
     TextEditingController nameController,
     TextEditingController ipController,
+    String tipoServidor,
   ) async {
     if (formKey.currentState?.validate() ?? false) {
       final name = nameController.text;
       final ip = ipController.text;
-      final newServer = {'nombre': name, 'ip': ip, 'excluido': 'false'};
+      final serverExists = serverManager.servers.any((s) => s['ip'] == ip);
+      String id = uuid.v4();
+      if (serverExists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El servidor ya existe'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      final newServer = {'id': id,  'nombre': name, 'ip': ip, 'excluido': 'false', 'tipo': tipoServidor};
+      print(newServer);
       serverManager.addServer(newServer);
-      await serverManager
-          .saveServers(); // Guarda los cambios en el archivo JSON
+      await serverManager.saveServers(); // Guarda los cambios en el archivo JSON
       setState(() {});
       Navigator.of(context).pop();
     }
@@ -150,26 +196,24 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  void handleRemoveServer(BuildContext context, String ip) async {
-    serverManager.removeServer(ip);
+  void handleRemoveServer(BuildContext context, String id) async {
+    serverManager.removeServer(id);
     await serverManager.saveServers();
     loadServers();
     // ignore: use_build_context_synchronously
     Navigator.of(context).pop();
   }
 
-  void showEditServerDialog(String oldIp) async {
+  void showEditServerDialog(String id) async {
     // Obtener el servidor a editar
-    final server = serverManager.servers.firstWhere((s) => s['ip'] == oldIp);
+    final server = serverManager.servers.firstWhere((s) => s['id'] == id);
     // Crear llave obligatoria para el formulario
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
     // Controladores para los campos de texto  y asignar valores iniciales
-    final TextEditingController nameController =
-        TextEditingController(text: server['nombre']);
-    final TextEditingController ipController =
-        TextEditingController(text: server['ip']);
-
+    final TextEditingController nameController = TextEditingController(text: server['nombre']);
+    final TextEditingController ipController = TextEditingController(text: server['ip']);
+    String tipoServidor = 'servidor';
     final FocusNode nameFocusNode = FocusNode();
 
     showDialog(
@@ -185,38 +229,70 @@ class HomePageState extends State<HomePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(
-                  focusNode: nameFocusNode,
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Nombre'),
-                  validator: (value) {
-                    // Validar que el campo no este vacio
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingrese un nombre';
-                    }
-                    // Validar que el nombre tenga al menos 3 caracteres
-                    if (value.length < 3) {
-                      return 'El nombre debe tener al menos 3 caracteres';
-                    }
-                    return null;
-                  },
-                  onFieldSubmitted: (value) {
-                    handleEditServer(formKey, nameController, ipController, oldIp, server);
-                  },
+                // Campo de texto para el nombre
+                SizedBox(
+                  width: double.infinity,
+                  child: TextFormField(
+                    focusNode: nameFocusNode,
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (value) {
+                      // Validar que el campo no este vacio
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingrese un nombre';
+                      }
+                      // Validar que el nombre tenga al menos 3 caracteres
+                      if (value.length < 3) {
+                        return 'El nombre debe tener al menos 3 caracteres';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (value) {
+                      handleEditServer(
+                          formKey, nameController, ipController, server, tipoServidor);
+                    },
+                  ),
                 ),
-                TextFormField(
-                  controller: ipController,
-                  decoration: const InputDecoration(labelText: 'IP'),
-                  validator: (value) {
-                    // Validar que el campo no este vacio
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingrese una IP';
-                    }
-                    return null;
-                  },
-                  onFieldSubmitted: (value) {
-                    handleEditServer(formKey, nameController, ipController, oldIp, server);
-                  },
+                const SizedBox(height: 16),
+                // Campo de texto para la dirección IP
+                SizedBox(
+                  width: double.infinity,
+                  child: TextFormField(
+                    controller: ipController,
+                    decoration: const InputDecoration(labelText: 'IP'),
+                    validator: (value) {
+                      // Validar que el campo no este vacio
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingrese una IP';
+                      }
+                      return null;
+                    },
+                    onFieldSubmitted: (value) {
+                      handleEditServer(
+                          formKey, nameController, ipController, server, tipoServidor);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Campo para tipo de servidor
+                SizedBox(
+                  width: double.infinity,
+                  child: DropdownButtonFormField(
+                    decoration:
+                        const InputDecoration(labelText: 'Tipo de Servidor'),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'servidor', child: Text('Servidor')),
+                      DropdownMenuItem(
+                          value: 'dispositivo', child: Text('Dispositivo')),
+                    ],
+                    value: tipoServidor,
+                    onChanged: (value) {
+                      setState(() {
+                        tipoServidor = value.toString();
+                      });
+                    },
+                  ),
                 ),
               ],
             ),
@@ -227,10 +303,11 @@ class HomePageState extends State<HomePage> {
                 Navigator.of(context).pop();
               },
               child: const Text("Cancelar"),
-            ),
+            ),  
             TextButton(
               onPressed: () async {
-                handleEditServer(formKey, nameController, ipController, oldIp, server);
+                handleEditServer(
+                    formKey, nameController, ipController, server, tipoServidor);
               },
               child: const Text("Guardar"),
             ),
@@ -244,8 +321,8 @@ class HomePageState extends State<HomePage> {
     GlobalKey<FormState> formKey,
     TextEditingController nameController,
     TextEditingController ipController,
-    String oldIp,
     Map<String, String> server,
+    String tipoServidor,
   ) async {
     // Verificar que cumpla con las validaciones
     if (formKey.currentState?.validate() ?? false) {
@@ -254,13 +331,15 @@ class HomePageState extends State<HomePage> {
       final updatedIp = ipController.text;
       // Crear un objeto del servidor a actualizar
       final updatedServer = {
+        'id': server['id'] ?? '',
         'nombre': updatedName,
         'ip': updatedIp,
-        'excluido': server['excluido'] ?? 'false'
+        'excluido': server['excluido'] ?? 'false',
+        'tipo': tipoServidor,
       };
 
       setState(() {
-        serverManager.updateServer(oldIp, updatedServer);
+        serverManager.updateServer(server['id'] ?? '', updatedServer);
       });
       // Guardar los cambios en el archivo JSON
       await serverManager.saveServers();

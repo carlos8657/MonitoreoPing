@@ -164,166 +164,284 @@ class _TableWidgetState extends State<TableWidget> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Table(
-          border: TableBorder.all(color: const Color.fromARGB(255, 0, 83, 226)),
-          columnWidths: const {
-            0: FlexColumnWidth(2),
-            1: FlexColumnWidth(1),
-            2: FlexColumnWidth(1),
-            3: FlexColumnWidth(1),
-          },
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            const TableRow(
-              decoration: BoxDecoration(color: Color.fromARGB(255, 0, 83, 226)),
-              children: [
-                Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Center(
-                    child: Text(
-                      'Dispositivo',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Center(
-                    child: Text(
-                      'IP',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Center(
-                    child: Text(
-                      'Estado',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Center(
-                    child: Text(
-                      'Latencia',
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            ...widget.servers.map(
-              (server) => TableRow(
+            // Tabla de Servidores
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 130,
-                          child: Center(
-                            child: Text(
-                              server['nombre'] ?? '',
-                              style: const TextStyle(fontSize: 25),
-                              softWrap: true,
-                              maxLines: 4,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
+                  const Center(
+                    child: Text(
+                      'Servidores',
+                      style:
+                          TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    // Usar Expanded para ajustarse al espacio disponible
+                    child: Table(
+                      border: TableBorder.all(),
+                      columnWidths: const <int, TableColumnWidth>{
+                        0: FlexColumnWidth(2), // Campo de Nombre más ancho
+                        1: FlexColumnWidth(1.5),
+                        2: FlexColumnWidth(1),
+                      },
+                      children: [
+                        const TableRow(
+                          decoration: BoxDecoration(
+                            color: Colors.grey,
+                          ),
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('NOMBRE',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22)),
                             ),
-                          ),
+                            Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('IP',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22)),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('MS',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20)),
+                            ),
+                          ],
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () {
-                          // Editar servidor
-                          widget.onEditServer(server['ip'] ?? '');
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          widget.onRemoveServer(server['ip'] ?? '');
-                        },
-                      ),
-                    ],
-                  ),
-                  SizedBox(
-                    height: 130,
-                    child: Container(
-                      alignment: Alignment.center,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Center(
-                          child: Text(server['ip'] ?? '',
-                              style: const TextStyle(fontSize: 25)),
-                        ),
-                      ),
+                        ...widget.servers
+                            .where((server) => server['tipo'] == 'servidor')
+                            .map((server) {
+                          final ip = server['ip'];
+                          return TableRow(
+                            children: [
+                              Row(
+                                children: [
+                                  // Indicador de estado
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color: _pingResults[server['ip']] ==
+                                                    'Error' ||
+                                                _pingResults[server['ip']] ==
+                                                    'Ping fallido' ||
+                                                _pingResults[server['ip']] ==
+                                                    null
+                                            ? Colors.red
+                                            : Colors.green,
+                                        borderRadius: BorderRadius.circular(50),
+                                      ),
+                                    ),
+                                  ),
+                                  // Nombre del servidor
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Text(
+                                        server['nombre'] ?? '',
+                                        style: const TextStyle(fontSize: 22),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  // Boton de editar
+                                  IconButton(
+                                    icon: const Icon(Icons.edit,
+                                        color: Colors.blue),
+                                    onPressed: () {
+                                      widget.onEditServer(server['id']!);
+                                    },
+                                  ),
+                                  // Boton de eliminar
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () {
+                                      widget.onRemoveServer(server['id']!);
+                                    },
+                                  ),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: Text(
+                                    server['ip'] ?? '',
+                                    style: const TextStyle(fontSize: 22),
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: Text(
+                                    _pingResults[ip] ?? '---',
+                                    style: const TextStyle(fontSize: 22),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
                     ),
                   ),
-                  SizedBox(
-                    height: 130,
-                    child: Container(
-                      color: _pingResults[server['ip']] == 'Error' ||
-                              _pingResults[server['ip']] == 'Ping fallido' ||
-                              _pingResults[server['ip']] == null
-                          ? Colors.redAccent
-                          : Colors.greenAccent,
-                      alignment: Alignment.center,
-                      child: Padding(
-                        padding: EdgeInsets.zero,
-                        child: Text(
-                          _pingResults[server['ip']] == 'Error' ||
-                                  _pingResults[server['ip']] ==
-                                      'Ping fallido' ||
-                                  _pingResults[server['ip']] == null
-                              ? 'Offline'
-                              : 'Online',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 25,
-                          ),
-                        ),
-                      ),
+                ],
+              ),
+            ),
+
+            // Espacio entre las tablas
+            const SizedBox(width: 22),
+            // Tabla de Dispositivos
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Center(
+                    child: Text(
+                      'Dispositivos',
+                      style:
+                          TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  SizedBox(
-                    height: 130,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Center(
-                        child: Text(_pingResults[server['ip']] ?? '---',
-                            style: const TextStyle(fontSize: 25)),
-                      ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    // Usar Expanded para ajustarse al espacio disponible
+                    child: Table(
+                      border: TableBorder.all(),
+                      columnWidths: const <int, TableColumnWidth>{
+                        0: FlexColumnWidth(2), // Campo de Nombre más ancho
+                        1: FlexColumnWidth(1),
+                        2: FlexColumnWidth(0.8),
+                      },
+                      children: [
+                        const TableRow(
+                          decoration: BoxDecoration(
+                            color: Colors.grey,
+                          ),
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('NOMBRE',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22)),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('IP',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22)),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Text('MS',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 22)),
+                            ),
+                          ],
+                        ),
+                        ...widget.servers
+                            .where((server) => server['tipo'] == 'dispositivo')
+                            .map((server) {
+                          final ip = server['ip'];
+                          return TableRow(
+                            children: [
+                              Row(
+                                children: [
+                                  // Indicador de estado
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color: _serverStatus[ip] == 'Online'
+                                            ? Colors.green
+                                            : Colors.red,
+                                        borderRadius: BorderRadius.circular(50),
+                                      ),
+                                    ),
+                                  ),
+                                  // Nombre del servidor
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Text(
+                                        server['nombre'] ?? '',
+                                        style: const TextStyle(fontSize: 22),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  // Boton de editar
+                                  IconButton(
+                                    icon: const Icon(Icons.edit,
+                                        color: Colors.blue),
+                                    onPressed: () {
+                                      widget.onEditServer(server['id']!);
+                                    },
+                                  ),
+                                  // Boton de eliminar
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () {
+                                      widget.onRemoveServer(server['id']!);
+                                    },
+                                  ),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: Text(
+                                    ip ?? '',
+                                    style: const TextStyle(fontSize: 22),
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Center(
+                                  child: Text(
+                                    _pingResults[ip] ?? '',
+                                    style: const TextStyle(fontSize: 22),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
           ],
-        ),
-      ),
-    );
+        ));
   }
 
   @override

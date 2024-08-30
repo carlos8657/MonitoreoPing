@@ -23,8 +23,11 @@ class ServerManager {
         final List<dynamic> jsonData = json.decode(fileContent);
         _servers = jsonData.map<Map<String, String>>((server) {
           return {
+            'id': server['id'].toString(),
             'nombre': server['nombre'].toString(),
             'ip': server['ip'].toString(),
+            'excluido': server['excluido'].toString(),
+            'tipo': server['tipo'].toString(),
           };
         }).toList();
       }
@@ -55,13 +58,13 @@ class ServerManager {
   }
 
   // Eliminar un servidor por nombre o IP
-  void removeServer(String value) {
-    _servers.removeWhere((server) => server['ip'] == value);
+  void removeServer(String id) {
+    _servers.removeWhere((server) => server['id'] == id);
     saveServers(); // Guarda automáticamente después de eliminar
   }
 
-  void updateServer(String oldIp, Map<String, String> updatedServer) {
-    final index = servers.indexWhere((server) => server['ip'] == oldIp);
+  void updateServer(String id, Map<String, String> updatedServer) {
+    final index = servers.indexWhere((server) => server['id'] == id);
     if (index != -1) {
       servers[index] = updatedServer;
     }
