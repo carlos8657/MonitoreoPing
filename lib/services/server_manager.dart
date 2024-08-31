@@ -55,6 +55,7 @@ class ServerManager {
   // Agregar un nuevo servidor
   void addServer(Map<String, String> server) {
     _servers.add(server);
+    saveServers(); // Guarda automáticamente después de agregar
   }
 
   // Eliminar un servidor por nombre o IP
@@ -68,5 +69,6 @@ class ServerManager {
     if (index != -1) {
       servers[index] = updatedServer;
     }
+    saveServers(); // Guarda automáticamente después de actualizar
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:monitoreo_ip/services/server_manager.dart';
 import 'package:monitoreo_ip/widgets/table.dart';
 import 'package:uuid/uuid.dart';
-import 'package:uuid/v4.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -155,7 +154,6 @@ class HomePageState extends State<HomePage> {
         return;
       }
       final newServer = {'id': id,  'nombre': name, 'ip': ip, 'excluido': 'false', 'tipo': tipoServidor};
-      print(newServer);
       serverManager.addServer(newServer);
       await serverManager.saveServers(); // Guarda los cambios en el archivo JSON
       setState(() {});
@@ -329,6 +327,16 @@ class HomePageState extends State<HomePage> {
       // Obtener informacion actualizada del servidor
       final updatedName = nameController.text;
       final updatedIp = ipController.text;
+      final serverExists = serverManager.servers.any((s) => s['ip'] == updatedIp && s['id'] != server['id']);
+      if (serverExists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El servidor ya existe'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
       // Crear un objeto del servidor a actualizar
       final updatedServer = {
         'id': server['id'] ?? '',
@@ -341,8 +349,6 @@ class HomePageState extends State<HomePage> {
       setState(() {
         serverManager.updateServer(server['id'] ?? '', updatedServer);
       });
-      // Guardar los cambios en el archivo JSON
-      await serverManager.saveServers();
       // Recargar servidores después de actualizar
       loadServers();
       // Cerrar el dialogo

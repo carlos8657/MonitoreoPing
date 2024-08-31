@@ -8,7 +8,7 @@ class PingService {
     try {
       final process = await Process.start(
         'ping',
-        ['-n', '8', host],
+        [host],
         mode: ProcessStartMode.normal,
       );
 
@@ -18,15 +18,9 @@ class PingService {
         dataGuardar += data;
       });
 
-      process.stderr.transform(utf8.decoder).listen((data) {
-        print('Error: $data');
-      });
-
-      final exitCode = await process.exitCode;
-      print('Process exited with code: $exitCode');
+      await process.exitCode;
       return extractIpAndAvgTime(dataGuardar);
     } catch (e) {
-      print('Failed to run ping: $e');
       return {'ip': host, 'media': 'Error'};
     }
   }

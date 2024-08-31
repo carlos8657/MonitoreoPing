@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:monitoreo_ip/services/ping.dart';
+import 'package:monitoreo_ip/services/server_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 class TableWidget extends StatefulWidget {
@@ -29,8 +30,9 @@ class _TableWidgetState extends State<TableWidget> {
   bool _isAlertVisible = false;
   OverlayEntry? _overlayEntry;
   late AudioPlayer _player;
-  final Map<String, int> numeroAlertas = {};
   final Map<String, int> pingFallidos = {};
+  final Map<String, int> numeroAlertas = {};
+  List<Map<String, String>> serversError = [];
 
   @override
   void initState() {
@@ -48,39 +50,47 @@ class _TableWidgetState extends State<TableWidget> {
   }
 
   void _startPing() {
-    Timer.periodic(const Duration(seconds: 1), (timer) {
+    Timer.periodic(const Duration(seconds: 3), (timer) {
       for (var server in widget.servers) {
+        // Obtener la IP del servidor
         final ip = server['ip'];
+
+        // Comprobar que no traiga ip
         if (ip != null) {
           _pingService.pingHost(ip).then((result) {
+            // Comprobar si el ping falló
             if (result['media'] == 'Ping fallido' ||
                 result['media'] == 'Error') {
+              // Incrementar el contador de ping fallidos
               pingFallidos[ip] = (pingFallidos[ip] ?? 0) + 1;
             } else {
+              // Restablecer servidor si se recupera
               pingFallidos[ip] = 0;
-              server['excluir'] = 'false';
+
+              serversError.remove(server);
             }
+            // Comprobar si trae ping o no para mostrar el circulo verde o rojo
             final isError = (result['media'] == 'Ping fallido' ||
                 result['media'] == 'Error');
 
             setState(() {
+              // Actualizar los resultados del ping
               _pingResults[ip] = result['media'] ?? 'Error';
               _serverStatus[ip] = isError ? 'Offline' : 'Online';
             });
 
-            // Muestra la alerta solo si el servidor no está excluido y es un error
-            if (!_isAlertVisible &&
-                isError &&
-                pingFallidos[ip]! >= 60 &&
-                server['excluir'] != 'true') {
-              restoreWindow();
-              _showErrorAlert(ip, result['media']!, server['nombre']!);
+            // Verificar numero de ping fallidos para agregar el servidor a la lista de servidores con error
+            // Verificar si el servidor ya esta en la lista de servidores con error para no agregarlo de nuevo
+            // Verificar si el servidor ya esta excluido del contador de alertas
+            if (pingFallidos[ip]! >= 20 && !serversError.contains(server)) {
+              serversError.add(server);
+            }
 
+            // Mostrar alerta si hay servidores con error
+            if (serversError.isNotEmpty) {
+              // Agregar 1 al contador de alertas para solo mostrar 3 veces la alerta
               numeroAlertas[ip] = (numeroAlertas[ip] ?? 0) + 1;
-              if (numeroAlertas[ip]! >= 3) {
-                numeroAlertas[ip] = 0;
-                server['excluir'] = 'true';
-              }
+              _showErrorAlert(serversError);
             }
           });
         }
@@ -88,19 +98,36 @@ class _TableWidgetState extends State<TableWidget> {
     });
   }
 
-  void _showErrorAlert(String ip, String error, String server) {
-    if (_isAlertVisible) return; // Evitar mostrar múltiples alertas
+  void _showErrorAlert(List<Map<String, String>> servers) {
+    // Verificar si ya se esta mostrando una alerta
+    if (_isAlertVisible) return; // Evita mostrar múltiples alertas
+
+    // Verificar si ya se mostraron 3 alertas de esos servidores para no mostrarlos de nuevo
+    for (var server in servers) {
+      final ip = server['ip'];
+      if (numeroAlertas[ip]! >= 3) {
+        server['excluido'] = 'true';
+      }
+    }
+
+    // Crear lista de servidores con error que no se han excluido
+    List<Map<String, String>> serversErrorSinExcluir = servers.where((server) => server['excluido'] != 'true').toList();
+
+    if (serversErrorSinExcluir.isEmpty) {
+      return;
+    }
 
     if (widget.isAudioEnabled) {
       _player.play(AssetSource('alerta.mp3'));
+      // Cambiar el estado de que hay una alerta visible
+      setState(() {
+        _isAlertVisible = true;
+      });
     }
-
-    setState(() {
-      _isAlertVisible = true;
-    });
+    int columns = (serversErrorSinExcluir.length / 5)
+        .ceil(); // Calcula el número de columnas 5 servidores por columna
 
     _overlayEntry?.remove(); // Eliminar la notificación anterior si existe
-
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned.fill(
         child: Material(
@@ -126,14 +153,39 @@ class _TableWidgetState extends State<TableWidget> {
                       ),
                     ),
                     const SizedBox(height: 16.0),
-                    Text(
-                      'Servidor: $server\nIP: $ip\nError: $error',
-                      style: const TextStyle(
-                        fontSize: 18.0,
-                        color: Colors.white,
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount:
+                              columns, // Número de columnas dinámico
+                          childAspectRatio:
+                              3, // Ajusta la relación de aspecto de los elementos
+                        ),
+                        itemCount: serversErrorSinExcluir.length,
+                        itemBuilder: (context, index) {
+                          final server = serversErrorSinExcluir[index];
+                          return Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(12.0),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Servidor: ${server['nombre']}\nIP: ${server['ip']}\nError: No ping',
+                                  style: const TextStyle(
+                                    fontSize: 18.0,
+                                    color: Colors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                    const SizedBox(height: 16.0),
                     ElevatedButton(
                       onPressed: () {
                         _player.stop();
@@ -187,8 +239,8 @@ class _TableWidgetState extends State<TableWidget> {
                       border: TableBorder.all(),
                       columnWidths: const <int, TableColumnWidth>{
                         0: FlexColumnWidth(2), // Campo de Nombre más ancho
-                        1: FlexColumnWidth(1.5),
-                        2: FlexColumnWidth(1),
+                        1: FlexColumnWidth(1),
+                        2: FlexColumnWidth(0.8),
                       },
                       children: [
                         const TableRow(
@@ -282,6 +334,7 @@ class _TableWidgetState extends State<TableWidget> {
                                 padding: const EdgeInsets.all(8.0),
                                 child: Center(
                                   child: Text(
+                                    softWrap: true,
                                     server['ip'] ?? '',
                                     style: const TextStyle(fontSize: 22),
                                   ),
